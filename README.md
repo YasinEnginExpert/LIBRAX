@@ -1,5 +1,7 @@
 [![LIBRAX Tanıtım Videosu](https://img.youtube.com/vi/XJAxeBnO2b8/hqdefault.jpg)](https://youtu.be/XJAxeBnO2b8)
 
+Tıklayarak projeyi baştan sona izleyebilirsiniz.
+
 # LIBRAX – Library Management System
 
 LIBRAX, PostgreSQL tabanlı bir veritabanı ve Python (PySide6) kullanılarak geliştirilmiş,
