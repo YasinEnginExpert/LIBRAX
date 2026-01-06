@@ -1,4 +1,6 @@
-# 📚 LIBRAX – Library Management System
+[![LIBRAX Tanıtım Videosu](https://img.youtube.com/vi/VIDEO_ID/0.jpg)]([https://www.youtube.com/watch?v=VIDEO_ID](https://youtu.be/XJAxeBnO2b8))
+
+# LIBRAX – Library Management System
 
 LIBRAX, PostgreSQL tabanlı bir veritabanı ve Python (PySide6) kullanılarak geliştirilmiş,
 masaüstü bir **Kütüphane Yönetim Sistemidir**.  
@@ -15,6 +17,8 @@ Uygulama aşağıdaki temel işlevleri kapsar:
 - İşlem kayıtları (loglama)
 
 ---
+
+
 
 ## Kullanılan Teknolojiler
 
