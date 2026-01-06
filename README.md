@@ -1,66 +1,32 @@
-<<<<<<< HEAD
-LIBRAX – Library Management System
+# 📚 LIBRAX – Library Management System
 
-LIBRAX, PostgreSQL tabanlı bir veritabanı ve Python (PySide6) ile geliştirilmiş,
-masaüstü bir Kütüphane Yönetim Sistemidir.
-Uygulama; üye yönetimi, kitap yönetimi, ödünç alma–teslim işlemleri, ceza hesaplama
-ve dinamik sorgulama özelliklerini içermektedir.
+LIBRAX, PostgreSQL tabanlı bir veritabanı ve Python (PySide6) kullanılarak geliştirilmiş,
+masaüstü bir **Kütüphane Yönetim Sistemidir**.  
+Üniversite kütüphanelerinde kitap, üye ve ödünç alma süreçlerini bütüncül ve entegre
+bir şekilde yönetmeyi amaçlar.
 
-Kullanılan Teknolojiler
+Uygulama aşağıdaki temel işlevleri kapsar:
 
-Python 3.9+
-PostgreSQL 13+
-PySide6 (Qt for Python) – GUI
-psycopg2-binary – PostgreSQL bağlantısı
-python-dotenv – Ortam değişkenleri yönetimi
+-  Üye yönetimi  
+- Kitap ve kategori yönetimi  
+- Ödünç alma – teslim işlemleri  
+- Gecikme cezası hesaplama  
+- Dinamik ve parametreli sorgulama  
+- İşlem kayıtları (loglama)
 
-Veritabanı Kurulumu
-PostgreSQL’de boş bir veritabanı oluşturun
-CREATE DATABASE librax;
+---
 
-SQL dosyalarını sırayla çalıştırın
-PostgreSQL’e bağlandıktan sonra:
-\c librax
-\i sql/01_schema.sql
-\i sql/02_tables.sql
-\i sql/03_constraints.sql
-\i sql/04_procedures.sql
-\i sql/05_triggers.sql
-\i sql/06_sample_data.sql
+## Kullanılan Teknolojiler
 
-Bu sıralama bozulmamalıdır.
+- Python 3.9+
+- PostgreSQL 13+
+- PySide6 (Qt for Python) – GUI
+- psycopg2-binary – PostgreSQL bağlantısı
+- python-dotenv – Ortam değişkenleri yönetimi
 
-Ortam Değişkenleri (.env)
-Proje kök dizininde .env dosyası oluşturun:
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres // Sizin şifreniz 
-DB_NAME=librax
-DB_SSLMODE=disable
+---
 
-Kendi PostgreSQL kullanıcı bilgilerinize göre düzenleyebilirsiniz.
-
-Python Ortamının Hazırlanması
-Sanal ortam oluşturun
-python -m venv venv
-
-Sanal ortamı aktif edin
-Windows : venv\Scripts\activate
-
-Linux / macOS : source venv/bin/activate
-
-Gerekli paketleri yükleyin
-pip install -r requirements.txt
-
-Uygulamanın Çalıştırılması
-Proje kök dizinindeyken:
-python main.py
-=======
-# LIBRAX
-LIBRAX is a desktop-based library automation system that manages books, members, and borrowing relationships in a holistic and integrated manner within university libraries.
-
-## ER Diagram (Crow’s Foot)
+## Veritabanı Tasarımı (ER Diagram – Crow’s Foot)
 
 ```mermaid
 erDiagram
@@ -131,6 +97,48 @@ erDiagram
         string IslemTuru
         string Aciklama
     }
-
 ```
->>>>>>> a9803b4b17279b9a244a0416c10e373e32587925
+
+## 🗄️ Veritabanı Kurulumu
+
+PostgreSQL üzerinde boş bir veritabanı oluşturun:
+
+```sql
+CREATE DATABASE librax;
+
+\c librax
+\i sql/01_schema.sql
+\i sql/02_tables.sql
+\i sql/03_constraints.sql
+\i sql/04_procedures.sql
+\i sql/05_triggers.sql
+\i sql/06_sample_data.sql
+```
+
+## Ortam Değişkenleri (.env)
+
+```sql
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=librax
+DB_SSLMODE=disable
+```
+
+## Python Ortamının Hazırlanması
+```sql
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# Linux / macOS
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+
+
+
+
+
