@@ -1,4 +1,4 @@
-[![LIBRAX Tanıtım Videosu](https://img.youtube.com/vi/VIDEO_ID/0.jpg)]([https://www.youtube.com/watch?v=VIDEO_ID](https://youtu.be/XJAxeBnO2b8))
+[![LIBRAX Tanıtım Videosu](https://img.youtube.com/vi/XJAxeBnO2b8/hqdefault.jpg)](https://youtu.be/XJAxeBnO2b8)
 
 # LIBRAX – Library Management System
 
