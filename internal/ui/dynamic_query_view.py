@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QComboBox,
-    QCheckBox, QPushButton,
-    QSpinBox, QTableWidget,
-    QTableWidgetItem
+    QLineEdit, QComboBox, QCheckBox,
+    QPushButton, QSpinBox,
+    QTableWidget, QTableWidgetItem,
+    QLabel, QMessageBox
 )
+from PySide6.QtCore import Qt
 from internal.repository.dinamik_kitap import DinamikKitapRepository
 
 
@@ -13,12 +14,24 @@ class DynamicQueryView(QWidget):
         super().__init__()
         self.repo = DinamikKitapRepository(conn)
         self.on_back = on_back
+
         self._build_ui()
 
+    # ===============================
+    # UI
+    # ===============================
     def _build_ui(self):
         root = QVBoxLayout()
+        root.setSpacing(12)
 
-        # ===== Filtreler =====
+        # ===== GERİ =====
+        back_btn = QPushButton("← Geri Dön")
+        back_btn.setFixedWidth(120)
+        back_btn.setStyleSheet("font-weight:600;")
+        back_btn.clicked.connect(self.on_back)
+        root.addWidget(back_btn, alignment=Qt.AlignLeft)
+
+        # ===== FİLTRELER =====
         f = QHBoxLayout()
 
         self.kitap_adi = QLineEdit()
@@ -58,43 +71,72 @@ class DynamicQueryView(QWidget):
 
         root.addLayout(f)
 
-        # ===== Buton =====
+        # ===== ARA =====
         btn = QPushButton("Ara")
+        btn.setMinimumHeight(36)
+        btn.setStyleSheet("font-weight:600;")
         btn.clicked.connect(self.ara)
         root.addWidget(btn)
 
-        # ===== Tablo =====
-        self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        # ===== TABLO =====
+        self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels([
             "ID", "Kitap", "Yazar",
             "Kategori", "Basım Yılı",
             "Toplam", "Mevcut"
         ])
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        self.table.horizontalHeader().setStretchLastSection(True)
         root.addWidget(self.table)
-
-        back = QPushButton("Geri")
-        back.clicked.connect(self.on_back)
-        root.addWidget(back)
 
         self.setLayout(root)
 
+    # ===============================
+    # ACTION
+    # ===============================
     def ara(self):
-        rows = self.repo.kitap_ara(
-            kitap_adi=self.kitap_adi.text() or None,
-            yazar=self.yazar.text() or None,
-            yil_min=self.yil_min.value() or None,
-            yil_max=self.yil_max.value() or None,
-            sadece_mevcut=self.sadece_mevcut.isChecked(),
-            order_by=self.order_by.currentText() or None,
-            order_dir=self.order_dir.currentText()
-        )
+        # Yıl mantık kontrolü
+        yil_min = self.yil_min.value() or None
+        yil_max = self.yil_max.value() or None
 
-        self.table.setRowCount(0)
-        for row in rows:
-            r = self.table.rowCount()
-            self.table.insertRow(r)
+        if yil_min and yil_max and yil_min > yil_max:
+            QMessageBox.warning(
+                self,
+                "Geçersiz Aralık",
+                "Minimum basım yılı, maksimum basım yılından büyük olamaz."
+            )
+            return
+
+        try:
+            rows = self.repo.kitap_ara(
+                kitap_adi=self.kitap_adi.text().strip() or None,
+                yazar=self.yazar.text().strip() or None,
+                yil_min=yil_min,
+                yil_max=yil_max,
+                sadece_mevcut=self.sadece_mevcut.isChecked(),
+                order_by=self.order_by.currentText() or None,
+                order_dir=self.order_dir.currentText()
+            )
+
+            self._fill_table(rows)
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Sorgu Hatası",
+                str(e)
+            )
+
+    # ===============================
+    # TABLE HELPER
+    # ===============================
+    def _fill_table(self, rows):
+        self.table.setRowCount(len(rows))
+
+        for r, row in enumerate(rows):
             for c, val in enumerate(row):
-                self.table.setItem(
-                    r, c, QTableWidgetItem(str(val))
-                )
+                item = QTableWidgetItem(str(val))
+                item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(r, c, item)

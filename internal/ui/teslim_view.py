@@ -4,83 +4,127 @@ from PySide6.QtWidgets import (
     QPushButton, QLineEdit, QLabel,
     QMessageBox
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from internal.repository.teslim import TeslimRepository
 
 
 class TeslimView(QWidget):
-    def __init__(self, conn, on_back):
+    def __init__(self, conn, state, on_back):
         super().__init__()
         self.repo = TeslimRepository(conn)
+        self.state = state
         self.on_back = on_back
         self.selected_odunc = None
 
         self._build_ui()
         self.load_data()
 
+    # ===============================
+    # UI
+    # ===============================
     def _build_ui(self):
         root = QVBoxLayout()
+        root.setSpacing(12)
 
-        # Geri dön
+        # ===== GERİ =====
         back_btn = QPushButton("← Geri Dön")
+        back_btn.setFixedWidth(120)
+        back_btn.setStyleSheet("font-weight:600;")
         back_btn.clicked.connect(self.on_back)
         root.addWidget(back_btn, alignment=Qt.AlignLeft)
 
-        # Arama
+        # ===== ARAMA =====
         search_layout = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText("Üye / Kitap ara")
+        self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self.load_data)
+
         search_layout.addWidget(QLabel("Arama:"))
         search_layout.addWidget(self.search)
         root.addLayout(search_layout)
 
-        # Tablo
+        # ===== TABLO =====
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(
             ["ID", "Üye", "Kitap", "Ödünç Tarihi", "Son Teslim"]
         )
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.cellClicked.connect(self.select_row)
         root.addWidget(self.table)
 
-        # Teslim Al
+        # ===== TESLİM AL =====
         self.btn = QPushButton("Teslim Al")
         self.btn.setMinimumHeight(40)
+        self.btn.setStyleSheet("font-weight:600;")
         self.btn.clicked.connect(self.teslim_al)
         root.addWidget(self.btn)
 
         self.setLayout(root)
 
+    # ===============================
+    # DATA LOAD
+    # ===============================
     def load_data(self):
-        rows = self.repo.aktif_oduncler(self.search.text())
-        self.table.setRowCount(0)
-        for r in rows:
-            i = self.table.rowCount()
-            self.table.insertRow(i)
-            for c, v in enumerate(r):
-                self.table.setItem(i, c, QTableWidgetItem(str(v)))
+        try:
+            rows = self.repo.aktif_oduncler(
+                self.search.text().strip()
+            )
 
+            self.table.setRowCount(len(rows))
+            for i, r in enumerate(rows):
+                for c, v in enumerate(r):
+                    item = QTableWidgetItem(str(v))
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.table.setItem(i, c, item)
+
+            # seçim reset
+            self.selected_odunc = None
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Hata",
+                f"Aktif ödünçler yüklenemedi:\n{e}"
+            )
+
+    # ===============================
+    # TABLE SELECT
+    # ===============================
     def select_row(self, row, _):
-        self.selected_odunc = int(self.table.item(row, 0).text())
+        try:
+            self.selected_odunc = int(
+                self.table.item(row, 0).text()
+            )
+        except Exception:
+            self.selected_odunc = None
 
+    # ===============================
+    # ACTION
+    # ===============================
     def teslim_al(self):
         if not self.selected_odunc:
             QMessageBox.warning(
                 self,
                 "Uyarı",
-                "Lütfen bir ödünç kaydı seçin."
+                "Lütfen teslim alınacak bir ödünç kaydı seçiniz."
             )
             return
 
-        today = QDate.currentDate().toString("yyyy-MM-dd")
+        today = self.state.virtual_now.date()
 
         try:
             self.repo.teslim_al(self.selected_odunc, today)
+
             QMessageBox.information(
                 self,
                 "Başarılı",
-                "Kitap teslim alındı."
+                "Kitap teslim alma işlemi tamamlandı."
             )
+
             self.load_data()
 
         except Exception as e:

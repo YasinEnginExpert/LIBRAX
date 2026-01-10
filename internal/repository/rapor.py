@@ -36,12 +36,12 @@ class RaporRepository:
                 k.kitapadi,
                 o.odunctarihi,
                 o.sonteslimtarihi,
-                (CURRENT_DATE - o.sonteslimtarihi) AS gecikme_gunu
+                (fn_bugun() - o.sonteslimtarihi) AS gecikme_gunu
             FROM odunc o
             JOIN uye u ON u.uyeid = o.uyeid
             JOIN kitap k ON k.kitapid = o.kitapid
             WHERE o.teslimtarihi IS NULL
-              AND o.sonteslimtarihi < CURRENT_DATE
+            AND o.sonteslimtarihi <= fn_bugun()
             ORDER BY gecikme_gunu DESC
             """
         )
@@ -60,6 +60,26 @@ class RaporRepository:
             WHERE o.odunctarihi BETWEEN %s AND %s
             GROUP BY k.kitapadi
             ORDER BY odunc_sayisi DESC
+            """,
+            (baslangic, bitis)
+        )
+        return cur.fetchall()
+
+    def ceza_raporu(self, baslangic, bitis):
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                u.ad || ' ' || u.soyad AS uye,
+                k.kitapadi,
+                c.tutar,
+                c.cezatarihi
+            FROM ceza c
+            JOIN uye u ON u.uyeid = c.uyeid
+            JOIN odunc o ON o.oduncid = c.oduncid
+            JOIN kitap k ON k.kitapid = o.kitapid
+            WHERE c.cezatarihi BETWEEN %s AND %s
+            ORDER BY c.cezatarihi DESC
             """,
             (baslangic, bitis)
         )

@@ -3,7 +3,7 @@ class KitapRepository:
         self.conn = conn
 
     # ===============================
-    # KATEGORİLER (Combobox için)
+    #  KATEGORİLER (Combobox)
     # ===============================
     def kategoriler(self):
         cur = self.conn.cursor()
@@ -17,7 +17,7 @@ class KitapRepository:
         return cur.fetchall()
 
     # ===============================
-    # KİTAP LİSTELE / ARA
+    #  KİTAP LİSTELE / ARA
     # ===============================
     def listele(self, keyword=None):
         cur = self.conn.cursor()
@@ -63,7 +63,7 @@ class KitapRepository:
         return cur.fetchall()
 
     # ===============================
-    # KİTAP EKLE
+    #  KİTAP EKLE (AKILLI)
     # ===============================
     def ekle(
         self,
@@ -75,27 +75,63 @@ class KitapRepository:
         toplamadet
     ):
         cur = self.conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO kitap
-            (kitapadi, yazar, kategoriid, yayinevi,
-             basimyili, toplamadet, mevcutadet)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                kitapadi,
-                yazar,
-                kategoriid,
-                yayinevi,
-                basimyili,
-                toplamadet,
-                toplamadet
+        try:
+            #  Aynı kitap var mı kontrol et
+            cur.execute(
+                """
+                SELECT kitapid
+                FROM kitap
+                WHERE kitapadi = %s
+                  AND yazar = %s
+                  AND kategoriid = %s
+                  AND yayinevi = %s
+                  AND basimyili = %s
+                """,
+                (kitapadi, yazar, kategoriid, yayinevi, basimyili)
             )
-        )
-        self.conn.commit()
+
+            row = cur.fetchone()
+
+            if row:
+                #  Varsa → adetleri artır
+                kitapid = row[0]
+                cur.execute(
+                    """
+                    UPDATE kitap
+                    SET toplamadet = toplamadet + %s,
+                        mevcutadet = mevcutadet + %s
+                    WHERE kitapid = %s
+                    """,
+                    (toplamadet, toplamadet, kitapid)
+                )
+            else:
+                #  Yoksa → yeni kayıt
+                cur.execute(
+                    """
+                    INSERT INTO kitap
+                    (kitapadi, yazar, kategoriid, yayinevi,
+                     basimyili, toplamadet, mevcutadet)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        kitapadi,
+                        yazar,
+                        kategoriid,
+                        yayinevi,
+                        basimyili,
+                        toplamadet,
+                        toplamadet
+                    )
+                )
+
+            self.conn.commit()
+
+        except Exception:
+            self.conn.rollback()
+            raise
 
     # ===============================
-    # KİTAP GÜNCELLE
+    #  KİTAP GÜNCELLE (KRİTİK)
     # ===============================
     def guncelle(
         self,
@@ -105,31 +141,67 @@ class KitapRepository:
         kategoriid,
         yayinevi,
         basimyili,
-        toplamadet
+        yeni_toplamadet
     ):
         cur = self.conn.cursor()
-        cur.execute(
-            """
-            UPDATE kitap
-            SET kitapadi=%s,
-                yazar=%s,
-                kategoriid=%s,
-                yayinevi=%s,
-                basimyili=%s,
-                toplamadet=%s
-            WHERE kitapid=%s
-            """,
-            (
-                kitapadi,
-                yazar,
-                kategoriid,
-                yayinevi,
-                basimyili,
-                toplamadet,
-                kitapid
+        try:
+            #  Mevcut stok bilgilerini al
+            cur.execute(
+                """
+                SELECT toplamadet, mevcutadet
+                FROM kitap
+                WHERE kitapid = %s
+                """,
+                (kitapid,)
             )
-        )
-        self.conn.commit()
+            row = cur.fetchone()
+
+            if not row:
+                raise Exception("Kitap bulunamadı.")
+
+            eski_toplamadet, eski_mevcutadet = row
+
+            #  Toplam adet farkı
+            fark = yeni_toplamadet - eski_toplamadet
+
+            #  Yeni mevcutadet hesapla
+            if fark > 0:
+                #  Yeni kitap eklenmiş
+                yeni_mevcutadet = eski_mevcutadet + fark
+            else:
+                #  Kitap azaltılmış → sınırla
+                yeni_mevcutadet = min(eski_mevcutadet, yeni_toplamadet)
+
+            #  Güncelle
+            cur.execute(
+                """
+                UPDATE kitap
+                SET kitapadi   = %s,
+                    yazar      = %s,
+                    kategoriid = %s,
+                    yayinevi   = %s,
+                    basimyili  = %s,
+                    toplamadet = %s,
+                    mevcutadet = %s
+                WHERE kitapid = %s
+                """,
+                (
+                    kitapadi,
+                    yazar,
+                    kategoriid,
+                    yayinevi,
+                    basimyili,
+                    yeni_toplamadet,
+                    yeni_mevcutadet,
+                    kitapid
+                )
+            )
+
+            self.conn.commit()
+
+        except Exception:
+            self.conn.rollback()
+            raise
 
     # ===============================
     # AKTİF ÖDÜNÇ VAR MI?
@@ -142,7 +214,7 @@ class KitapRepository:
                 SELECT 1
                 FROM odunc
                 WHERE kitapid = %s
-                  AND teslimtarihi IS NULL
+                AND teslimtarihi IS NULL
             )
             """,
             (kitapid,)
@@ -150,12 +222,44 @@ class KitapRepository:
         return cur.fetchone()[0]
 
     # ===============================
-    # KİTAP SİL
+    #  KİTAP SİL (KONTROLLÜ)
     # ===============================
     def sil(self, kitapid):
         cur = self.conn.cursor()
+        try:
+            # Önce aktif ödünç kontrolü yapılır
+            if self.silinebilir_mi(kitapid):
+                raise Exception(
+                    "Bu kitaba ait ödünç kayıtları bulunduğu için silinemez."
+                )
+
+            # Silme işlemi
+            cur.execute(
+                "DELETE FROM kitap WHERE kitapid = %s",
+                (kitapid,)
+            )
+
+            if cur.rowcount == 0:
+                raise Exception("Kitap bulunamadı veya silinemedi.")
+
+            self.conn.commit()
+
+        except Exception:
+            self.conn.rollback()
+            raise
+    # ===============================
+    #  MEVCUT ADET GETİR
+    # ===============================
+
+    def mevcut_adet(self, kitapid):
+        cur = self.conn.cursor()
         cur.execute(
-            "DELETE FROM kitap WHERE kitapid=%s",
+            """
+            SELECT mevcutadet
+            FROM kitap
+            WHERE kitapid = %s
+            """,
             (kitapid,)
         )
-        self.conn.commit()
+        row = cur.fetchone()
+        return row[0] if row else 0

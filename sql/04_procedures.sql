@@ -3,45 +3,42 @@
 -- Stored Procedures
 -- =============================================
 
-CREATE OR REPLACE PROCEDURE public.sp_kitapteslimal(
-    IN p_oduncid integer,
-    IN p_teslimtarihi date
+CREATE OR REPLACE PROCEDURE sp_KitapTeslimAl(
+    p_OduncID INT
 )
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_son_teslim DATE;
-    v_uye_id INT;
-    v_gecikme_gun INT;
-    v_ceza_tutar NUMERIC(10,2);
+    v_kitapid INT;
 BEGIN
-    SELECT sonteslimtarihi, uyeid
-    INTO v_son_teslim, v_uye_id
+    -- Aktif ödünç var mı?
+    SELECT kitapid
+    INTO v_kitapid
     FROM odunc
-    WHERE oduncid = p_oduncid
-      AND teslimtarihi IS NULL;
+    WHERE oduncid = p_OduncID
+      AND teslimtarihi IS NULL
+    FOR UPDATE;
 
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Geçersiz ödünç ID veya kitap zaten teslim edilmiş';
+    IF v_kitapid IS NULL THEN
+        RAISE EXCEPTION 'Geçerli bir aktif ödünç bulunamadı';
     END IF;
 
+    -- Teslim al (SANAL TARİH)
     UPDATE odunc
-    SET teslimtarihi = p_teslimtarihi
-    WHERE oduncid = p_oduncid;
+    SET teslimtarihi = fn_bugun()
+    WHERE oduncid = p_OduncID;
 
-    IF p_teslimtarihi > v_son_teslim THEN
-        v_gecikme_gun := p_teslimtarihi - v_son_teslim;
-        v_ceza_tutar := v_gecikme_gun * 5;
+    -- Stok artır
+    UPDATE kitap
+    SET mevcutadet = mevcutadet + 1
+    WHERE kitapid = v_kitapid;
 
-        INSERT INTO ceza (uyeid, oduncid, tutar, cezatarihi)
-        VALUES (v_uye_id, p_oduncid, v_ceza_tutar, p_teslimtarihi);
-    END IF;
 END;
 $$;
 
 
-CREATE OR REPLACE PROCEDURE public.sp_uyeozetrapor(
-    IN p_uyeid integer
+CREATE OR REPLACE PROCEDURE sp_uyeozetrapor(
+    IN p_uyeid INT
 )
 LANGUAGE plpgsql
 AS $$
@@ -62,44 +59,97 @@ END;
 $$;
 
 
-CREATE OR REPLACE PROCEDURE public.sp_yenioduncver(
-    IN p_uyeid integer,
-    IN p_kitapid integer,
-    IN p_gorevliid integer
+CREATE OR REPLACE PROCEDURE sp_YeniOduncVer(
+    p_UyeID INT,
+    p_KitapID INT,
+    p_GorevliID INT
 )
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_aktif_odunc INT;
-    v_mevcut_adet INT;
+    v_mevcut INT;
 BEGIN
-    SELECT COUNT(*) INTO v_aktif_odunc
-    FROM odunc
-    WHERE uyeid = p_uyeid
-      AND teslimtarihi IS NULL;
+    SELECT mevcutadet
+    INTO v_mevcut
+    FROM kitap
+    WHERE kitapid = p_KitapID
+    FOR UPDATE;
 
-    IF v_aktif_odunc >= 5 THEN
-        RAISE EXCEPTION 'Üyenin aktif ödünç limiti dolu';
+    IF v_mevcut IS NULL THEN
+        RAISE EXCEPTION 'Kitap bulunamadı';
     END IF;
 
-    SELECT mevcutadet INTO v_mevcut_adet
-    FROM kitap
-    WHERE kitapid = p_kitapid;
-
-    IF v_mevcut_adet <= 0 THEN
-        RAISE EXCEPTION 'Kitap stokta yok';
+    IF v_mevcut <= 0 THEN
+        RAISE EXCEPTION 'Bu kitabın stoğu yok';
     END IF;
 
     INSERT INTO odunc (
-        uyeid, kitapid, gorevliid,
-        odunctarihi, sonteslimtarihi
+        uyeid,
+        kitapid,
+        gorevliid,
+        odunctarihi,
+        sonteslimtarihi
     )
     VALUES (
-        p_uyeid,
-        p_kitapid,
-        p_gorevliid,
-        CURRENT_DATE,
-        CURRENT_DATE + INTERVAL '15 day'
+        p_UyeID,
+        p_KitapID,
+        p_GorevliID,
+        fn_bugun(),
+        fn_bugun() + INTERVAL '14 days'
     );
+
+    UPDATE kitap
+    SET mevcutadet = mevcutadet - 1
+    WHERE kitapid = p_KitapID;
 END;
 $$;
+
+
+
+CREATE OR REPLACE PROCEDURE sp_GecikmeleriKontrolEt()
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    r RECORD;
+    v_gecikme INT;
+    v_ceza NUMERIC;
+BEGIN
+    FOR r IN
+        SELECT
+            o.oduncid,
+            o.uyeid,
+            o.sonteslimtarihi
+        FROM odunc o
+        WHERE o.teslimtarihi IS NULL
+          AND fn_bugun() > o.sonteslimtarihi
+    LOOP
+        v_gecikme := fn_bugun() - r.sonteslimtarihi;
+        v_ceza := v_gecikme * 2;
+
+        -- Aynı ödünç için tekrar ceza yazma
+        IF NOT EXISTS (
+            SELECT 1 FROM ceza
+            WHERE oduncid = r.oduncid
+        ) THEN
+            INSERT INTO ceza (
+                uyeid,
+                oduncid,
+                tutar,
+                cezatarihi
+            )
+            VALUES (
+                r.uyeid,
+                r.oduncid,
+                v_ceza,
+                fn_bugun()
+            );
+
+            UPDATE uye
+            SET toplamborc = toplamborc + v_ceza
+            WHERE uyeid = r.uyeid;
+        END IF;
+    END LOOP;
+END;
+$$;
+
+

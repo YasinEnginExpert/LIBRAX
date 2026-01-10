@@ -1,4 +1,4 @@
-[![LIBRAX Tanıtım Videosu](https://img.youtube.com/vi/XJAxeBnO2b8/hqdefault.jpg)](https://youtu.be/XJAxeBnO2b8)
+[![LIBRAX Tanıtım Videosu](https://img.youtube.com/vi/XJAxeBnO2b8/hqdefault.jpg)](https://youtu.be/8YGk-d-7eXE)
 
 Tıklayarak projeyi baştan sona izleyebilirsiniz.
 

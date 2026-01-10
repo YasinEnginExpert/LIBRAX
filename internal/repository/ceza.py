@@ -1,56 +1,108 @@
+
 class CezaRepository:
     def __init__(self, conn):
         self.conn = conn
 
+    # =========================
+    # CEZASI OLAN / OLABİLEN ÜYELER
+    # =========================
     def uyeleri_getir(self):
-        cur = self.conn.cursor()
-        cur.execute(
-            """
-            SELECT uyeid, ad || ' ' || soyad
-            FROM uye
-            ORDER BY ad, soyad
-            """
-        )
-        return cur.fetchall()
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT uyeid, ad || ' ' || soyad AS adsoyad
+                    FROM uye
+                    ORDER BY ad, soyad
+                    """
+                )
+                return cur.fetchall()
+        except Exception:
+            self.conn.rollback()
+            raise
 
+    # =========================
+    # CEZA LİSTESİ (FİLTRELİ)
+    # =========================
     def cezalari_getir(self, uyeid=None, baslangic=None, bitis=None):
-        cur = self.conn.cursor()
+        try:
+            with self.conn.cursor() as cur:
+                query = """
+                    SELECT
+                        c.cezaid,
+                        u.ad || ' ' || u.soyad AS uye,
+                        c.tutar,
+                        c.cezatarihi,
+                        c.oduncid
+                    FROM ceza c
+                    JOIN uye u ON u.uyeid = c.uyeid
+                """
+                conditions = []
+                params = []
 
-        query = """
-            SELECT
-                c.cezaid,
-                u.ad || ' ' || u.soyad AS uye,
-                c.tutar,
-                c.cezatarihi,
-                c.oduncid
-            FROM ceza c
-            JOIN uye u ON u.uyeid = c.uyeid
-            WHERE 1=1
+                if uyeid:
+                    conditions.append("c.uyeid = %s")
+                    params.append(uyeid)
+
+                if baslangic:
+                    conditions.append("c.cezatarihi >= %s")
+                    params.append(baslangic)
+
+                if bitis:
+                    conditions.append("c.cezatarihi <= %s")
+                    params.append(bitis)
+
+                if conditions:
+                    query += " WHERE " + " AND ".join(conditions)
+
+                query += " ORDER BY c.cezatarihi DESC"
+
+                cur.execute(query, params)
+                return cur.fetchall()
+
+        except Exception:
+            self.conn.rollback()
+            raise
+
+    # =========================
+    # TOPLAM BORÇ (GÜVENLİ)
+    # =========================
+    def toplam_borc(self, uyeid, verify=False):
         """
-        params = []
+        verify=True:
+            - CEZA tablosundan SUM alır
+            - uye.toplamborc ile fark varsa loglar
+        """
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    "SELECT toplamborc FROM uye WHERE uyeid = %s",
+                    (uyeid,)
+                )
+                row = cur.fetchone()
+                cache_borc = row[0] if row else 0
 
-        if uyeid:
-            query += " AND c.uyeid = %s"
-            params.append(uyeid)
+                if not verify:
+                    return cache_borc
 
-        if baslangic:
-            query += " AND c.cezatarihi >= %s"
-            params.append(baslangic)
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(tutar), 0)
+                    FROM ceza
+                    WHERE uyeid = %s
+                    """,
+                    (uyeid,)
+                )
+                real_borc = cur.fetchone()[0]
 
-        if bitis:
-            query += " AND c.cezatarihi <= %s"
-            params.append(bitis)
+                if verify and real_borc != cache_borc:
+                    cur.execute(
+                        "UPDATE uye SET toplamborc = %s WHERE uyeid = %s",
+                        (real_borc, uyeid)
+                    )
 
-        query += " ORDER BY c.cezatarihi DESC"
+                return real_borc
 
-        cur.execute(query, params)
-        return cur.fetchall()
-
-    def toplam_borc(self, uyeid):
-        cur = self.conn.cursor()
-        cur.execute(
-            "SELECT toplamborc FROM uye WHERE uyeid = %s",
-            (uyeid,)
-        )
-        row = cur.fetchone()
-        return row[0] if row else 0
+        except Exception:
+            self.conn.rollback()
+            raise

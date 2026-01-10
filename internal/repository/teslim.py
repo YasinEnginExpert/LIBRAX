@@ -2,7 +2,6 @@ class TeslimRepository:
     def __init__(self, conn):
         self.conn = conn
 
-    # Aktif ödünçler
     def aktif_oduncler(self, keyword=None):
         cur = self.conn.cursor()
         if keyword:
@@ -45,11 +44,10 @@ class TeslimRepository:
             )
         return cur.fetchall()
 
-    # Stored procedure çağrısı
-    def teslim_al(self, oduncid, tarih):
+    def teslim_al(self, oduncid, teslim_tarihi):
         cur = self.conn.cursor()
         cur.execute(
-            "CALL sp_KitapTeslimAl(%s, %s)",
-            (oduncid, tarih)
+            "CALL sp_kitapteslimal(%s, %s)",
+            (oduncid, teslim_tarihi)
         )
         self.conn.commit()

@@ -4,11 +4,15 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from internal.ui.time_control_widget import TimeControlWidget
+
 
 class DashboardView(QWidget):
-    def __init__(self, state, on_nav, on_logout):
+    def __init__(self, state, conn, on_nav, on_logout):
         super().__init__()
+
         self.state = state
+        self.conn = conn
         self.on_nav = on_nav
         self.on_logout = on_logout
 
@@ -19,10 +23,13 @@ class DashboardView(QWidget):
         root.setAlignment(Qt.AlignTop)
         root.setSpacing(16)
 
-        # ===== Kullanıcı adı =====
+        # =========================
+        # KULLANICI BİLGİSİ
+        # =========================
         username = "?"
         if self.state.session:
             username = self.state.session.kullanici_adi
+
         title = QLabel(f"Hoş geldiniz, {username}")
         title.setStyleSheet(
             "font-size:20px; font-weight:600;"
@@ -33,7 +40,9 @@ class DashboardView(QWidget):
         subtitle.setStyleSheet("color:gray;")
         root.addWidget(subtitle)
 
-        # ===== Menü =====
+        # =========================
+        # ANA MENÜ
+        # =========================
         grid = QGridLayout()
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(12)
@@ -58,7 +67,18 @@ class DashboardView(QWidget):
 
         root.addLayout(grid)
 
-        # ===== Çıkış =====
+        # =========================
+        # ZAMAN SİMÜLASYONU
+        # =========================a
+        time_widget = TimeControlWidget(
+            state=self.state,
+            conn=self.conn
+        )
+        root.addWidget(time_widget)
+
+        # =========================
+        # ÇIKIŞ
+        # =========================
         logout_btn = QPushButton("Çıkış")
         logout_btn.setMinimumHeight(42)
         logout_btn.setStyleSheet("font-weight:600;")
